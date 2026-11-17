@@ -1,0 +1,24 @@
+name: truesmith-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-gcc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: make CC=cc CFLAGS="-std=c11 -O2 -Wall -Wextra -Werror"
+      - name: Test and self-audit
+        run: make test
+
+  build-clang:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build with clang
+        run: make CC=clang CFLAGS="-std=c11 -O2 -Wall -Wextra -Werror"
