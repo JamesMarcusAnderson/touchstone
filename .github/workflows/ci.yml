@@ -1,4 +1,4 @@
-name: truesmith-ci
+name: touchstone-ci
 
 on:
   push:
