@@ -99,3 +99,8 @@ never as passed.
 Pure C11, no dependencies beyond the C library and the directory
 interface the platform provides for walking a tree. Build with make.
 Run the tests with make test.
+
+## License
+
+TrueSmith License — see `LICENSE`. Anyone may use, copy, modify, and
+share this software for any purpose, provided the notice stays with it.
