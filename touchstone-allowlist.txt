@@ -1,0 +1,3 @@
+# Touchstone allowlist: interface names the code must speak, with reasons.
+# This project needs none right now. One entry per line: the name, then
+# the reason it must stay. Entries without a reason are ignored.

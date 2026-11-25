@@ -1,22 +1,22 @@
-/* TrueSmith: authenticity auditor. Audits code for original work. */
-#include "ts_check.h"
-#include "ts_scan.h"
-#include "ts_util.h"
-#include "truesmith_selfscore.h"
+/* Touchstone: authenticity auditor. Audits code for original work. */
+#include "tst_check.h"
+#include "tst_scan.h"
+#include "tst_util.h"
+#include "touchstone_selfscore.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define TRUESMITH_VERSION "0.1.0"
-#define TRUESMITH_LIMITS "Evidence-based signals only. This tool reports what it can check: names, markers, duplication, working code, and doc agreement. It cannot prove no copying ever happened anywhere. A 100% score means every check passed on the evidence available, not that the work is proven original against the whole world."
+#define TOUCHSTONE_VERSION "0.1.0"
+#define TOUCHSTONE_LIMITS "Evidence-based signals only. This tool reports what it can check: names, markers, duplication, working code, and doc agreement. It cannot prove no copying ever happened anywhere. A 100% score means every check passed on the evidence available, not that the work is proven original against the whole world."
 
-static const char *ts_default_exts[] = {
+static const char *tst_default_exts[] = {
     "c", "h", "cc", "cpp", "hpp", "js", "mjs", "css", "py", "sh",
     "md", "json", "txt", "html"
 };
-#define TS_DEFAULT_EXT_COUNT \
-    (sizeof(ts_default_exts) / sizeof(const char *))
+#define TST_DEFAULT_EXT_COUNT \
+    (sizeof(tst_default_exts) / sizeof(const char *))
 
 typedef struct {
     const char *root;
@@ -32,12 +32,12 @@ typedef struct {
     int run_build;
     int self_check;
     int quiet;
-} ts_options_t;
+} tst_options_t;
 
-static void ts_usage(void)
+static void tst_usage(void)
 {
-    printf("TrueSmith %s - authenticity auditor\n", TRUESMITH_VERSION);
-    printf("Usage: truesmith <dir> [options]\n");
+    printf("Touchstone %s - authenticity auditor\n", TOUCHSTONE_VERSION);
+    printf("Usage: touchstone <dir> [options]\n");
     printf("Options:\n");
     printf("  --json <file>       write machine-readable report\n");
     printf("  --allowlist <file>  names the code must speak, with reasons\n");
@@ -54,12 +54,12 @@ static void ts_usage(void)
     printf("Exit code is 0 only when every audited file scores 100.\n");
 }
 
-static void ts_version(void)
+static void tst_version(void)
 {
-    printf("truesmith %s\n", TRUESMITH_VERSION);
+    printf("touchstone %s\n", TOUCHSTONE_VERSION);
 }
 
-static char **ts_split_list(const char *s, size_t *count)
+static char **tst_split_list(const char *s, size_t *count)
 {
     char **out = NULL;
     size_t n = 0;
@@ -78,10 +78,10 @@ static char **ts_split_list(const char *s, size_t *count)
         if (len > 0) {
             if (n == cap) {
                 size_t next = cap == 0 ? 8 : cap * 2;
-                out = (char **)ts_xrealloc(out, next * sizeof(char *));
+                out = (char **)tst_xrealloc(out, next * sizeof(char *));
                 cap = next;
             }
-            out[n] = ts_dup_range(p, len);
+            out[n] = tst_dup_range(p, len);
             n++;
         }
         if (comma == NULL)
@@ -92,7 +92,7 @@ static char **ts_split_list(const char *s, size_t *count)
     return out;
 }
 
-static void ts_free_list(char **list, size_t n)
+static void tst_free_list(char **list, size_t n)
 {
     size_t i;
     for (i = 0; i < n; i++)
@@ -101,7 +101,7 @@ static void ts_free_list(char **list, size_t n)
 }
 
 /* Load an allowlist: first word is the name, the rest is the reason. */
-static char **ts_load_allowlist(const char *path, size_t *count,
+static char **tst_load_allowlist(const char *path, size_t *count,
     const char *root, char **resolved)
 {
     FILE *fp;
@@ -112,24 +112,24 @@ static char **ts_load_allowlist(const char *path, size_t *count,
     *count = 0;
     *resolved = NULL;
     if (path == NULL) {
-        ts_buf_t def;
-        ts_buf_init(&def);
-        ts_buf_pushf(&def, "%s/truesmith-allowlist.txt", root);
+        tst_buf_t def;
+        tst_buf_init(&def);
+        tst_buf_pushf(&def, "%s/touchstone-allowlist.txt", root);
         fp = fopen(def.data, "rb");
         if (fp == NULL) {
-            ts_buf_free(&def);
+            tst_buf_free(&def);
             return NULL;
         }
-        *resolved = ts_dup(def.data);
-        ts_buf_free(&def);
+        *resolved = tst_dup(def.data);
+        tst_buf_free(&def);
     } else {
         fp = fopen(path, "rb");
         if (fp == NULL) {
-            fprintf(stderr, "truesmith: cannot open allowlist %s\n",
+            fprintf(stderr, "touchstone: cannot open allowlist %s\n",
                 path);
             return NULL;
         }
-        *resolved = ts_dup(path);
+        *resolved = tst_dup(path);
     }
     while (fgets(line, sizeof(line), fp) != NULL) {
         char *p = line;
@@ -147,16 +147,16 @@ static char **ts_load_allowlist(const char *path, size_t *count,
             p++;
         if (*p == '\0' || *p == '\n') {
             fprintf(stderr,
-                "truesmith: allowlist entry \"%.*s\" has no reason; ignored\n",
+                "touchstone: allowlist entry \"%.*s\" has no reason; ignored\n",
                 (int)nlen, name);
             continue;
         }
         if (n == cap) {
             size_t next = cap == 0 ? 16 : cap * 2;
-            names = (char **)ts_xrealloc(names, next * sizeof(char *));
+            names = (char **)tst_xrealloc(names, next * sizeof(char *));
             cap = next;
         }
-        names[n] = ts_dup_range(name, nlen);
+        names[n] = tst_dup_range(name, nlen);
         n++;
     }
     fclose(fp);
@@ -164,7 +164,7 @@ static char **ts_load_allowlist(const char *path, size_t *count,
     return names;
 }
 
-static void ts_json_escape(FILE *fp, const char *s)
+static void tst_json_escape(FILE *fp, const char *s)
 {
     size_t i;
     for (i = 0; s[i] != '\0'; i++) {
@@ -184,8 +184,8 @@ static void ts_json_escape(FILE *fp, const char *s)
     }
 }
 
-static void ts_report_check_text(FILE *fp, const char *label, int weight,
-    ts_check_t *c)
+static void tst_report_check_text(FILE *fp, const char *label, int weight,
+    tst_check_t *c)
 {
     size_t i;
     fprintf(fp, "  %s %d (weight %d)", label, c->score, weight);
@@ -199,13 +199,13 @@ static void ts_report_check_text(FILE *fp, const char *label, int weight,
             c->items[i].text);
 }
 
-static void ts_report_text(FILE *fp, const char *root,
-    ts_file_list_t *files, ts_file_result_t *results,
-    ts_project_result_t *proj, int quiet, const char **excludes,
+static void tst_report_text(FILE *fp, const char *root,
+    tst_file_list_t *files, tst_file_result_t *results,
+    tst_project_result_t *proj, int quiet, const char **excludes,
     size_t nexcludes)
 {
     size_t i;
-    fprintf(fp, "TrueSmith authenticity audit\n");
+    fprintf(fp, "Touchstone authenticity audit\n");
     fprintf(fp, "Project: %s\n", root);
     fprintf(fp, "Files audited: %lu (%ld lines)\n",
         (unsigned long)proj->files, proj->total_lines);
@@ -233,20 +233,20 @@ static void ts_report_text(FILE *fp, const char *root,
             results[i].score);
         if (quiet || results[i].score >= 100.0)
             continue;
-        ts_report_check_text(fp, "names", 25, &results[i].names);
-        ts_report_check_text(fp, "third-party", 25, &results[i].third);
-        ts_report_check_text(fp, "duplication", 20, &results[i].dup);
-        ts_report_check_text(fp, "real-work", 20, &results[i].real);
-        ts_report_check_text(fp, "docs", 10, &results[i].docs);
+        tst_report_check_text(fp, "names", 25, &results[i].names);
+        tst_report_check_text(fp, "third-party", 25, &results[i].third);
+        tst_report_check_text(fp, "duplication", 20, &results[i].dup);
+        tst_report_check_text(fp, "real-work", 20, &results[i].real);
+        tst_report_check_text(fp, "docs", 10, &results[i].docs);
     }
-    fprintf(fp, "\nTrueSmith self-integrity: %s%% (verified at build, %s, source %s)\n",
-        TRUESMITH_SELF_SCORE, TRUESMITH_SELF_BUILT,
-        TRUESMITH_SELF_FINGERPRINT);
-    fprintf(fp, "%s\n", TRUESMITH_LIMITS);
+    fprintf(fp, "\nTouchstone self-integrity: %s%% (verified at build, %s, source %s)\n",
+        TOUCHSTONE_SELF_SCORE, TOUCHSTONE_SELF_BUILT,
+        TOUCHSTONE_SELF_FINGERPRINT);
+    fprintf(fp, "%s\n", TOUCHSTONE_LIMITS);
 }
 
-static void ts_report_check_json(FILE *fp, const char *label, int weight,
-    ts_check_t *c)
+static void tst_report_check_json(FILE *fp, const char *label, int weight,
+    tst_check_t *c)
 {
     size_t i;
     fprintf(fp, "        \"%s\": {\"score\": %d, \"weight\": %d, \"findings\": [",
@@ -255,29 +255,29 @@ static void ts_report_check_json(FILE *fp, const char *label, int weight,
         if (i > 0)
             fputs(", ", fp);
         fprintf(fp, "{\"line\": %d, \"text\": \"", c->items[i].line);
-        ts_json_escape(fp, c->items[i].text);
+        tst_json_escape(fp, c->items[i].text);
         fputs("\"}", fp);
     }
     fputs("]}", fp);
 }
 
-static void ts_report_json(FILE *fp, const char *root,
-    ts_file_list_t *files, ts_file_result_t *results,
-    ts_project_result_t *proj, const char **excludes, size_t nexcludes)
+static void tst_report_json(FILE *fp, const char *root,
+    tst_file_list_t *files, tst_file_result_t *results,
+    tst_project_result_t *proj, const char **excludes, size_t nexcludes)
 {
     size_t i;
     fputs("{\n", fp);
-    fprintf(fp, "  \"tool\": \"truesmith\",\n");
-    fprintf(fp, "  \"version\": \"%s\",\n", TRUESMITH_VERSION);
+    fprintf(fp, "  \"tool\": \"touchstone\",\n");
+    fprintf(fp, "  \"version\": \"%s\",\n", TOUCHSTONE_VERSION);
     fputs("  \"project\": \"", fp);
-    ts_json_escape(fp, root);
+    tst_json_escape(fp, root);
     fputs("\",\n", fp);
     fputs("  \"excluded\": [", fp);
     for (i = 0; i < nexcludes; i++) {
         if (i > 0)
             fputs(", ", fp);
         fputc('"', fp);
-        ts_json_escape(fp, excludes[i]);
+        tst_json_escape(fp, excludes[i]);
         fputc('"', fp);
     }
     fputs("],\n", fp);
@@ -301,36 +301,36 @@ static void ts_report_json(FILE *fp, const char *root,
         if (i > 0)
             fputs(",", fp);
         fputs("\n    {\"path\": \"", fp);
-        ts_json_escape(fp, files->items[i].rel);
+        tst_json_escape(fp, files->items[i].rel);
         fprintf(fp, "\", \"lines\": %ld, \"score\": %.1f,\n",
             files->items[i].nblank, results[i].score);
         fputs("     \"checks\": {\n", fp);
-        ts_report_check_json(fp, "names", 25, &results[i].names);
+        tst_report_check_json(fp, "names", 25, &results[i].names);
         fputs(",\n", fp);
-        ts_report_check_json(fp, "third-party", 25, &results[i].third);
+        tst_report_check_json(fp, "third-party", 25, &results[i].third);
         fputs(",\n", fp);
-        ts_report_check_json(fp, "duplication", 20, &results[i].dup);
+        tst_report_check_json(fp, "duplication", 20, &results[i].dup);
         fputs(",\n", fp);
-        ts_report_check_json(fp, "real-work", 20, &results[i].real);
+        tst_report_check_json(fp, "real-work", 20, &results[i].real);
         fputs(",\n", fp);
-        ts_report_check_json(fp, "docs", 10, &results[i].docs);
+        tst_report_check_json(fp, "docs", 10, &results[i].docs);
         fputs("\n     }}", fp);
     }
     if (files->n > 0)
         fputs("\n  ", fp);
     fputs("],\n", fp);
     fprintf(fp, "  \"auditor_self_score\": \"%s\",\n",
-        TRUESMITH_SELF_SCORE);
+        TOUCHSTONE_SELF_SCORE);
     fprintf(fp, "  \"auditor_self_built\": \"%s\",\n",
-        TRUESMITH_SELF_BUILT);
+        TOUCHSTONE_SELF_BUILT);
     fprintf(fp, "  \"auditor_self_fingerprint\": \"%s\",\n",
-        TRUESMITH_SELF_FINGERPRINT);
+        TOUCHSTONE_SELF_FINGERPRINT);
     fputs("  \"limits\": \"", fp);
-    ts_json_escape(fp, TRUESMITH_LIMITS);
+    tst_json_escape(fp, TOUCHSTONE_LIMITS);
     fputs("\"\n}\n", fp);
 }
 
-static int ts_parse_args(int argc, char **argv, ts_options_t *o,
+static int tst_parse_args(int argc, char **argv, tst_options_t *o,
     char ***ext_list, size_t *ext_count,
     char ***excl_list, size_t *excl_count)
 {
@@ -341,8 +341,8 @@ static int ts_parse_args(int argc, char **argv, ts_options_t *o,
     o->owner = "James Marcus Anderson";
     o->build_cmd = NULL;
     o->test_cmd = NULL;
-    o->exts = ts_default_exts;
-    o->nexts = TS_DEFAULT_EXT_COUNT;
+    o->exts = tst_default_exts;
+    o->nexts = TST_DEFAULT_EXT_COUNT;
     o->excludes = NULL;
     o->nexcludes = 0;
     o->run_build = 1;
@@ -355,11 +355,11 @@ static int ts_parse_args(int argc, char **argv, ts_options_t *o,
     for (i = 1; i < argc; i++) {
         char *a = argv[i];
         if (strcmp(a, "--help") == 0) {
-            ts_usage();
+            tst_usage();
             exit(0);
         }
         if (strcmp(a, "--version") == 0) {
-            ts_version();
+            tst_version();
             exit(0);
         }
         if (strcmp(a, "--quiet") == 0) {
@@ -395,30 +395,30 @@ static int ts_parse_args(int argc, char **argv, ts_options_t *o,
             continue;
         }
         if (strcmp(a, "--ext") == 0 && i + 1 < argc) {
-            *ext_list = ts_split_list(argv[++i], ext_count);
+            *ext_list = tst_split_list(argv[++i], ext_count);
             o->exts = (const char **)*ext_list;
             o->nexts = *ext_count;
             continue;
         }
         if (strcmp(a, "--exclude") == 0 && i + 1 < argc) {
-            char **one = ts_split_list(argv[++i], excl_count);
+            char **one = tst_split_list(argv[++i], excl_count);
             *excl_list = one;
             o->excludes = (const char **)one;
             o->nexcludes = *excl_count;
             continue;
         }
         if (a[0] == '-') {
-            fprintf(stderr, "truesmith: unknown option %s\n", a);
+            fprintf(stderr, "touchstone: unknown option %s\n", a);
             return -1;
         }
         if (o->root != NULL) {
-            fprintf(stderr, "truesmith: only one directory allowed\n");
+            fprintf(stderr, "touchstone: only one directory allowed\n");
             return -1;
         }
         o->root = a;
     }
     if (o->root == NULL) {
-        ts_usage();
+        tst_usage();
         return -1;
     }
     return 0;
@@ -426,7 +426,7 @@ static int ts_parse_args(int argc, char **argv, ts_options_t *o,
 
 int main(int argc, char **argv)
 {
-    ts_options_t o;
+    tst_options_t o;
     char **ext_list = NULL;
     size_t ext_count = 0;
     char **excl_list = NULL;
@@ -434,66 +434,66 @@ int main(int argc, char **argv)
     char **allow = NULL;
     size_t nallow = 0;
     char *allow_resolved = NULL;
-    ts_file_list_t files;
-    ts_file_result_t *results = NULL;
-    ts_project_result_t proj;
+    tst_file_list_t files;
+    tst_file_result_t *results = NULL;
+    tst_project_result_t proj;
     size_t i;
     int rc = 0;
 
-    if (ts_parse_args(argc, argv, &o, &ext_list, &ext_count,
+    if (tst_parse_args(argc, argv, &o, &ext_list, &ext_count,
         &excl_list, &excl_count) != 0)
         return 2;
-    allow = ts_load_allowlist(o.allow_path, &nallow, o.root,
+    allow = tst_load_allowlist(o.allow_path, &nallow, o.root,
         &allow_resolved);
-    if (ts_walk(o.root, o.exts, o.nexts, o.excludes, o.nexcludes,
+    if (tst_walk(o.root, o.exts, o.nexts, o.excludes, o.nexcludes,
         allow_resolved, &files) != 0) {
-        fprintf(stderr, "truesmith: cannot open directory %s\n", o.root);
+        fprintf(stderr, "touchstone: cannot open directory %s\n", o.root);
         return 2;
     }
     if (files.n == 0) {
-        printf("TrueSmith authenticity audit\n");
+        printf("Touchstone authenticity audit\n");
         printf("Project: %s\n", o.root);
         printf("Files audited: 0\n");
         printf("Project score: n/a (no files)\n");
-        printf("\nTrueSmith self-integrity: %s%% (verified at build, %s, source %s)\n",
-            TRUESMITH_SELF_SCORE, TRUESMITH_SELF_BUILT,
-            TRUESMITH_SELF_FINGERPRINT);
-        printf("%s\n", TRUESMITH_LIMITS);
-        ts_file_list_free(&files);
+        printf("\nTouchstone self-integrity: %s%% (verified at build, %s, source %s)\n",
+            TOUCHSTONE_SELF_SCORE, TOUCHSTONE_SELF_BUILT,
+            TOUCHSTONE_SELF_FINGERPRINT);
+        printf("%s\n", TOUCHSTONE_LIMITS);
+        tst_file_list_free(&files);
         return 1;
     }
-    results = (ts_file_result_t *)ts_xcalloc(files.n,
-        sizeof(ts_file_result_t));
-    ts_audit(&files, o.root, o.owner, (const char **)allow, nallow,
+    results = (tst_file_result_t *)tst_xcalloc(files.n,
+        sizeof(tst_file_result_t));
+    tst_audit(&files, o.root, o.owner, (const char **)allow, nallow,
         o.build_cmd, o.test_cmd, o.run_build, results, &proj);
-    ts_report_text(stdout, o.root, &files, results, &proj, o.quiet,
+    tst_report_text(stdout, o.root, &files, results, &proj, o.quiet,
         o.excludes, o.nexcludes);
     if (o.json_out != NULL) {
         FILE *fp = fopen(o.json_out, "wb");
         if (fp == NULL) {
-            fprintf(stderr, "truesmith: cannot write %s\n", o.json_out);
+            fprintf(stderr, "touchstone: cannot write %s\n", o.json_out);
             rc = 2;
         } else {
-            ts_report_json(fp, o.root, &files, results, &proj,
+            tst_report_json(fp, o.root, &files, results, &proj,
                 o.excludes, o.nexcludes);
             fclose(fp);
         }
     }
     if (proj.perfect != proj.files)
         rc = 1;
-    if (o.self_check && strcmp(TRUESMITH_SELF_SCORE, "100.0") != 0) {
+    if (o.self_check && strcmp(TOUCHSTONE_SELF_SCORE, "100.0") != 0) {
         fprintf(stderr,
-            "truesmith: self-check failed: baked self-score is %s, not 100.0\n",
-            TRUESMITH_SELF_SCORE);
+            "touchstone: self-check failed: baked self-score is %s, not 100.0\n",
+            TOUCHSTONE_SELF_SCORE);
         rc = 1;
     }
     for (i = 0; i < files.n; i++)
-        ts_file_result_free(&results[i]);
+        tst_file_result_free(&results[i]);
     free(results);
-    ts_file_list_free(&files);
-    ts_free_list(allow, nallow);
+    tst_file_list_free(&files);
+    tst_free_list(allow, nallow);
     free(allow_resolved);
-    ts_free_list(ext_list, ext_count);
-    ts_free_list(excl_list, excl_count);
+    tst_free_list(ext_list, ext_count);
+    tst_free_list(excl_list, excl_count);
     return rc;
 }

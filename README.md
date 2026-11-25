@@ -1,6 +1,8 @@
-# TrueSmith
+# Touchstone
 
-TrueSmith audits a codebase file by file and reports, for each file and
+Renamed from TrueSmith on 2026-11-24.
+
+Touchstone audits a codebase file by file and reports, for each file and
 for the whole project, a percentage of true original creative and real
 work. Every percentage comes with its per-check breakdown, so the number
 is auditable, not magic.
@@ -49,7 +51,7 @@ fails to compile scores 0 on the real-work check.
 
 Build with make, then run:
 
-    truesmith <dir> [options]
+    touchstone <dir> [options]
 
 Options:
 
@@ -68,14 +70,14 @@ paths are printed in every report, so an audit scope is never hidden.
 
 ## Allowlist
 
-The allowlist file is named truesmith-allowlist.txt and lives in the
+The allowlist file is named touchstone-allowlist.txt and lives in the
 audit root, or is passed with --allowlist. One entry per line: the name,
 then the reason it must stay. Entries without a reason are ignored, and
 the file itself is never audited.
 
 ## Self-integrity
 
-TrueSmith audits itself with the same logic it applies to everything
+Touchstone audits itself with the same logic it applies to everything
 else. The build runs the tool on its own source and fails unless the
 score is 100 on every file. The score, build time, and a fingerprint of
 the source are stamped into the binary at build time, and every report
@@ -85,7 +87,7 @@ ships.
 
 ## Honesty limits
 
-TrueSmith reports evidence, not proof. It cannot prove no copying ever
+Touchstone reports evidence, not proof. It cannot prove no copying ever
 happened anywhere on the internet. Its name list is finite. Its
 duplication check reads code shape, not meaning, so rewritten copies can
 pass it. Its build check runs the project's own build and test commands
@@ -102,5 +104,5 @@ Run the tests with make test.
 
 ## License
 
-TrueSmith License — see `LICENSE`. Anyone may use, copy, modify, and
+Touchstone License — see `LICENSE`. Anyone may use, copy, modify, and
 share this software for any purpose, provided the notice stays with it.
