@@ -1,9 +1,0 @@
-/* TrueSmith self-score, written by the Makefile at build time. */
-#ifndef TRUESMITH_SELFSCORE_H
-#define TRUESMITH_SELFSCORE_H
-
-#define TRUESMITH_SELF_SCORE "100.0"
-#define TRUESMITH_SELF_BUILT "2026-11-18T02:21:02Z"
-#define TRUESMITH_SELF_FINGERPRINT "42312ec3973591271f551709a9a8fb93a5c80468ecf0a639976a763ea847848d"
-
-#endif
